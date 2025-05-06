@@ -1,0 +1,11 @@
+{
+	'TemplatesFolder': 'Templates',
+	'DstFolder': 'docs_files',
+	'CSVFile_users': 'users.csv',
+	'Prompt_csv_keyfield': 'Enter surname (can be multiple comma separated)',
+	'vars_description': {
+		'event_date': 'Event date (eg. 27.04.2025)',
+		'event_start_date_month_2': 'Event start (eg. 28 april 2025)',
+		'some_string': 'Some long string'
+	}
+}

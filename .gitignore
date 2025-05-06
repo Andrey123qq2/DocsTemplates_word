@@ -1,0 +1,49 @@
+# Ignore PowerShell build artifacts
+*.ps1~
+*.psm1~
+*.psd1~
+*.ps1xml~
+*.xaml.cs
+*.nupkg
+*.snupkg
+
+# Ignore compiled files and cache
+*.dll
+*.exe
+*.pdb
+*.obj
+*.cache
+*.vspscc
+*.vssscc
+
+# Ignore user-specific files
+*.user
+*.suo
+*.userprefs
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Ignore Visual Studio Code settings
+.vscode/
+
+# Ignore GitHub workflows cache
+.github/workflows/*_cache/
+
+# Ignore Test results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Ignore additional files
+*.docx
+*.csv
+*.json
