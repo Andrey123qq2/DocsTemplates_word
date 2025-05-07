@@ -23,7 +23,7 @@ function Select-WordFile {
     $choice = Read-Host "Enter the number of the file"
 
     # Validate the choice
-    if ($choice -match '^\d+$' -and $choice -ge 1 -and $choice -le $wordFiles.Count) {
+    if ($choice -match '^\d+$' -and $choice -ge 1 -and [int]$choice -le $wordFiles.Count) {
         $selectedFile = $wordFiles[$choice - 1].Name
         Write-Host "You selected: $selectedFile"
         return $selectedFile
@@ -182,7 +182,7 @@ foreach ($surname in $surnames) {
     }
 
     $DstFilePath = "$CurrentFolder\$($Config.DstFolder)\$TemplateFile"
-    $FileNameNew = $DstFilePath.Replace($Config.FileNameReplaceVar, $VariableMap.Surname)
+    $FileNameNew = $DstFilePath.Replace("`${$($Config.FileNameReplaceVar)}", $VariableMap.Surname)
 
     Copy-Item $TemplateFilePath -Destination $FileNameNew -Verbose
     $doc_vars = Get-VariablesFromDocx -FilePath $FileNameNew
