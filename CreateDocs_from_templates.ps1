@@ -1,6 +1,6 @@
 ﻿$ConfigFile = "Config_all.json"
 
-function Select-WordFile {
+function Select-TemplateFile {
     param (
         [string]$Directory = $PSScriptRoot  # Default to the script's directory
     )
@@ -140,34 +140,73 @@ function Validate-Files {
     }
 }
 
-# Get Config
-$CurrentFolder = (Split-Path $MyInvocation.MyCommand.Path -Parent)
-$ConfigFile = "$CurrentFolder\$ConfigFile"
-Validate-Files @($ConfigFile)
-$Config = Get-Content $ConfigFile | ConvertFrom-Json
+function Fill-TemplateForUser{
+    param(
+        [string]$TemplatePath,
+        [hashtable]$VariableMap,
+        [string]$DstFolder,
+        [string]$ReplaceVar
+    )
+    $FileNameNew = $TemplatePath.Replace("`${$ReplaceVar}", $VariableMap.Surname)
 
-# Get and validate files pathes
-$CSVFile_users = "$CurrentFolder\$($Config.CSVFile_users)"
-$TemplateFile = Select-WordFile -Directory "$CurrentFolder\$($Config.TemplatesFolder)"
-$TemplateFilePath = "$CurrentFolder\$($Config.TemplatesFolder)\$TemplateFile"
-Validate-Files @($CSVFile_users, $TemplateFilePath)
+    Copy-Item $TemplateFilePath -Destination $FileNameNew -Verbose
+    $doc_vars = Get-VariablesFromDocx -FilePath $FileNameNew
+    $doc_vars_unique = $doc_vars | Where-Object { $_ -notin $VariableMap.Keys }
+
+    Write-Host "`nProcessing $surname"
+    $vars_description_names = $(Get-Member -InputObject $Config.vars_description -MemberType NoteProperty).Name
+
+    foreach ($var in $doc_vars_unique) {
+        if (-not $VariableMap.ContainsKey($var)) {
+            # Prompt and store
+            if ($var -in $vars_description_names) {
+                $var_descr = $Config.vars_description | Select-Object -ExpandProperty $var
+            } else {
+                $var_descr = $var
+            }
+            $value = Read-Host "$($var_descr)"
+            $VariableMap[$var] = $value
+        }
+    }
+
+    Write-Output "`nGenerating file: $FileNameNew"
+    Replace-VariablesInDocx -FilePath $FileNameNew -VariableMap $VariableMap
+}
+
+function Get-Config {
+    param (
+        [string]$Folder,
+        [string]$ConfigFile
+    )
+    # Get Config
+    $ConfigFile = "$Folder\$ConfigFile"
+    Validate-Files @($ConfigFile)
+    $Config = Get-Content $ConfigFile | ConvertFrom-Json
+    return $Config
+}
+
+$CurrentFolder = (Split-Path $MyInvocation.MyCommand.Path -Parent)
+
+$Config = Get-Config -Folder $CurrentFolder -ConfigFile $ConfigFile
+
 if (-Not (Test-Path "$CurrentFolder\$($Config.DstFolder)")) {
     Write-Information "Dst Folder not found."
     New-Item -ItemType Directory -Path "$CurrentFolder\$($Config.DstFolder)"
 }
 
-# Read CSV users file
+$CSVFile_users = "$CurrentFolder\$($Config.CSVFile_users)"
+Validate-Files @($CSVFile_users)
 $CSVFile_users_Content = Import-Csv -Delimiter ';' -Path $CSVFile_users -Encoding 'UTF8'
 
-$VariableMap = @{}
-$SharedVariables = @{}
+$TemplateFile = Select-TemplateFile -Directory "$CurrentFolder\$($Config.TemplatesFolder)"
+$TemplateFilePath = "$CurrentFolder\$($Config.TemplatesFolder)\$TemplateFile"
+Validate-Files @($TemplateFilePath)
 
-# Ask for surnames (comma separated)
 $surnames_input = Read-Host $Config.Prompt_csv_keyfield
 $surnames = $surnames_input -split '\s*,\s*'
+$VariableMap = @{}
 
 foreach ($surname in $surnames) {
-    $VariableMap = @{}
     $VariableMap["Surname"] = $surname
 
     $user_row = $CSVFile_users_Content | Where-Object { $_.Surname -eq $surname }
@@ -182,34 +221,9 @@ foreach ($surname in $surnames) {
     }
 
     $DstFilePath = "$CurrentFolder\$($Config.DstFolder)\$TemplateFile"
-    $FileNameNew = $DstFilePath.Replace("`${$($Config.FileNameReplaceVar)}", $VariableMap.Surname)
+    Fill-TemplateForUser -TemplatePath $DstFilePath `
+        -VariableMap $VariableMap -DstFolder $Config.DstFolder -ReplaceVar $Config.FileNameReplaceVar
 
-    Copy-Item $TemplateFilePath -Destination $FileNameNew -Verbose
-    $doc_vars = Get-VariablesFromDocx -FilePath $FileNameNew
-    $doc_vars_unique = $doc_vars | Where-Object { $_ -notin $VariableMap.Keys }
-
-    Write-Host "`nProcessing $surname"
-    $vars_description_names = $(Get-Member -InputObject $Config.vars_description -MemberType NoteProperty).Name
-
-    foreach ($var in $doc_vars_unique) {
-        # Check if already entered
-        if ($SharedVariables.ContainsKey($var)) {
-            $VariableMap[$var] = $SharedVariables[$var]
-        } else {
-            # Prompt and store
-            if ($var -in $vars_description_names) {
-                $var_descr = $Config.vars_description | Select-Object -ExpandProperty $var
-            } else {
-                $var_descr = $var
-            }
-            $value = Read-Host "$($var_descr)"
-            $VariableMap[$var] = $value
-            $SharedVariables[$var] = $value  # Save for reuse
-        }
-    }
-
-    Write-Output "`nGenerating file: $FileNameNew"
-    Replace-VariablesInDocx -FilePath $FileNameNew -VariableMap $VariableMap
 }
 
 Read-Host "Press Enter to exit"
