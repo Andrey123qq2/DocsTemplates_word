@@ -32,7 +32,7 @@ This PowerShell script automates filling Word document templates with user data 
       "Prompt_csv_keyfield": "Enter Surnames (comma-separated):",
       "vars_description": {
         "IssueDate": "Date of Issue",
-        "OfficerName": "Officer's Full Name"
+        "SignerName": "Signed by"
       }
     }
     ```
