@@ -140,21 +140,41 @@ function Validate-Files {
     }
 }
 
-function Fill-TemplateForUser{
-    param(
-        [string]$TemplatePath,
+function Get-MissingVariables {
+    param (
+        [string]$FilePath,
         [hashtable]$VariableMap,
-        [string]$DstFolder,
-        [string]$ReplaceVar
+        $Descriptions
     )
-    $FileNameNew = $TemplatePath.Replace("`${$ReplaceVar}", $VariableMap.Surname)
 
-    Copy-Item $TemplateFilePath -Destination $FileNameNew -Verbose
-    $doc_vars = Get-VariablesFromDocx -FilePath $FileNameNew
+    $doc_vars = Get-VariablesFromDocx -FilePath $FilePath
     $doc_vars_unique = $doc_vars | Where-Object { $_ -notin $VariableMap.Keys }
-
-    Write-Host "`nProcessing $surname"
     $vars_description_names = $(Get-Member -InputObject $Config.vars_description -MemberType NoteProperty).Name
+
+    foreach ($var in $doc_vars_unique) {
+        if (-not $VariableMap.ContainsKey($var)) {
+            $var_descr = if ($vars_description_names -contains $var) {
+                $Descriptions[$var]
+            } else {
+                $var
+            }
+            $value = Read-Host "$($var_descr)"
+            $VariableMap[$var] = $value
+        }
+    }
+    return $VariableMap
+}
+
+function Get-AdditionalVariables {
+    param (
+        [string]$FilePath,
+        [hashtable]$VariableMap,
+        $Descriptions,
+        [hashtable]$SharedVariables
+    )
+
+    $doc_vars = Get-VariablesFromDocx -FilePath $FilePath
+    $doc_vars_unique = $doc_vars | Where-Object { $_ -notin $VariableMap.Keys }
 
     foreach ($var in $doc_vars_unique) {
         if (-not $VariableMap.ContainsKey($var)) {
@@ -168,9 +188,7 @@ function Fill-TemplateForUser{
             $VariableMap[$var] = $value
         }
     }
-
-    Write-Output "`nGenerating file: $FileNameNew"
-    Replace-VariablesInDocx -FilePath $FileNameNew -VariableMap $VariableMap
+    return $VariableMap
 }
 
 function Get-Config {
@@ -178,20 +196,19 @@ function Get-Config {
         [string]$Folder,
         [string]$ConfigFile
     )
-    # Get Config
     $ConfigFile = "$Folder\$ConfigFile"
     Validate-Files @($ConfigFile)
-    $Config = Get-Content $ConfigFile | ConvertFrom-Json
-    return $Config
+    return Get-Content $ConfigFile | ConvertFrom-Json
 }
 
+# --- Main ---
 $CurrentFolder = (Split-Path $MyInvocation.MyCommand.Path -Parent)
-
 $Config = Get-Config -Folder $CurrentFolder -ConfigFile $ConfigFile
 
-if (-Not (Test-Path "$CurrentFolder\$($Config.DstFolder)")) {
+$DstPath = "$CurrentFolder\$($Config.DstFolder)"
+if (-not (Test-Path $DstPath)) {
     Write-Information "Dst Folder not found."
-    New-Item -ItemType Directory -Path "$CurrentFolder\$($Config.DstFolder)"
+    New-Item -ItemType Directory -Path $DstPath
 }
 
 $CSVFile_users = "$CurrentFolder\$($Config.CSVFile_users)"
@@ -204,26 +221,34 @@ Validate-Files @($TemplateFilePath)
 
 $surnames_input = Read-Host $Config.Prompt_csv_keyfield
 $surnames = $surnames_input -split '\s*,\s*'
-$VariableMap = @{}
 
+$VariableMap = @{}
 foreach ($surname in $surnames) {
     $VariableMap["Surname"] = $surname
 
     $user_row = $CSVFile_users_Content | Where-Object { $_.Surname -eq $surname }
-    if ($user_row -eq $null) {
-        # Write-Warning "Користувача з прізвищем '$surname' не знайдено в CSV. Пропуск."
-        Write-Warning "Row $($VariableMap["Surname"]) is not found in CSV file. Continue"
+    if (-not $user_row) {
+        Write-Warning "Row '$surname' is not found in CSV file. Continue."
         continue
     }
+    
+    Write-Host "`nProcessing $($VariableMap.Surname)"
 
     foreach ($prop in $user_row.psobject.properties) {
         $VariableMap[$prop.Name] = $prop.Value
     }
 
-    $DstFilePath = "$CurrentFolder\$($Config.DstFolder)\$TemplateFile"
-    Fill-TemplateForUser -TemplatePath $DstFilePath `
-        -VariableMap $VariableMap -DstFolder $Config.DstFolder -ReplaceVar $Config.FileNameReplaceVar
+    $FileNameNew = "$CurrentFolder\$($Config.DstFolder)\$TemplateFile".`
+        Replace("`${$($Config.FileNameReplaceVar)}", $VariableMap.Surname)
+    Copy-Item $TemplateFilePath -Destination $FileNameNew -Verbose
+    
+    $VariableMap = Get-AdditionalVariables -FilePath $FileNameNew `
+        -VariableMap $VariableMap `
+        -Descriptions $Config.vars_description `
+        -SharedVariables $SharedVariables
 
+    Write-Output "`nGenerating file: $FileNameNew"
+    Replace-VariablesInDocx -FilePath $FileNameNew -VariableMap $VariableMap
 }
 
 Read-Host "Press Enter to exit"
