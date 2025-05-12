@@ -140,31 +140,6 @@ function Validate-Files {
     }
 }
 
-function Get-MissingVariables {
-    param (
-        [string]$FilePath,
-        [hashtable]$VariableMap,
-        $Descriptions
-    )
-
-    $doc_vars = Get-VariablesFromDocx -FilePath $FilePath
-    $doc_vars_unique = $doc_vars | Where-Object { $_ -notin $VariableMap.Keys }
-    $vars_description_names = $(Get-Member -InputObject $Config.vars_description -MemberType NoteProperty).Name
-
-    foreach ($var in $doc_vars_unique) {
-        if (-not $VariableMap.ContainsKey($var)) {
-            $var_descr = if ($vars_description_names -contains $var) {
-                $Descriptions[$var]
-            } else {
-                $var
-            }
-            $value = Read-Host "$($var_descr)"
-            $VariableMap[$var] = $value
-        }
-    }
-    return $VariableMap
-}
-
 function Get-AdditionalVariables {
     param (
         [string]$FilePath,
