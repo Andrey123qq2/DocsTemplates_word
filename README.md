@@ -10,6 +10,15 @@ This PowerShell script automates filling Word document templates with user data 
 - Save generated files into a specified destination folder.
 - Allows filling data for multiple users in one run.
 
+## 📁 Folder Structure
+
+Working directory should contain:
+- `Config.json` – Configuration file with settings like file paths, template folder, destination folder, etc.
+- `users.csv` – CSV file with user data (e.g., Surname, Name, etc.)
+- `Templates\` – Folder containing Word document templates.
+- `Output\` – Destination folder where filled documents will be saved (created automatically if missing).
+
+
 ---
 
 ## 🧰 Prerequisites
