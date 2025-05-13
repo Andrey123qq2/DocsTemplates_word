@@ -150,6 +150,7 @@ function Get-AdditionalVariables {
 
     $doc_vars = Get-VariablesFromDocx -FilePath $FilePath
     $doc_vars_unique = $doc_vars | Where-Object { $_ -notin $VariableMap.Keys }
+    $vars_description_names = $(Get-Member -InputObject $Descriptions -MemberType NoteProperty).Name
 
     foreach ($var in $doc_vars_unique) {
         if (-not $VariableMap.ContainsKey($var)) {
