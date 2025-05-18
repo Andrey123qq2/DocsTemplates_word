@@ -1,37 +1,25 @@
 ﻿$ConfigFile = "Config_all.json"
 
-function Select-TemplateFile {
+function Select-TemplateSource {
     param (
-        [string]$Directory = $PSScriptRoot  # Default to the script's directory
+        [string]$BasePath
     )
-    # Get list of .word files in the specified directory
-    $wordFiles = Get-ChildItem -Path $Directory -Filter "*.docx"
-
-    # Check if any word files are found
-    if ($wordFiles.Count -eq 0) {
-        Write-Host "No .docx files found in the directory: $Directory"
-        return $null
+    $items = Get-ChildItem -Path $BasePath
+    if ($items.Count -eq 0) {
+        throw "No templates found in $BasePath"
     }
 
-    # Display the list of .docx files
-    Write-Host "Select a Word file:"
-    for ($i = 0; $i -lt $wordFiles.Count; $i++) {
-        Write-Host "$($i + 1): $($wordFiles[$i].Name)"
+    Write-Host "Choose a template (file or folder):"
+    for ($i = 0; $i -lt $items.Count; $i++) {
+        $type = if ($items[$i].PSIsContainer) { "Folder" } else { "File" }
+        Write-Host "$($i + 1). $($items[$i].Name) [$type]"
     }
 
-    # Ask the user to choose a file
-    $choice = Read-Host "Enter the number of the file"
-
-    # Validate the choice
-    if ($choice -match '^\d+$' -and $choice -ge 1 -and [int]$choice -le $wordFiles.Count) {
-        $selectedFile = $wordFiles[$choice - 1].Name
-        Write-Host "You selected: $selectedFile"
-        return $selectedFile
-    } else {
-        Write-Host "Invalid selection. Please try again."
-        return $null
-    }
+    $choice = Read-Host "Enter number of template to use"
+    return $items[$choice - 1]
 }
+
+
 
 # Define function to replace variables in a .docx file
 function Replace-VariablesInDocx {
@@ -144,8 +132,7 @@ function Get-AdditionalVariables {
     param (
         [string]$FilePath,
         [hashtable]$VariableMap,
-        $Descriptions,
-        [hashtable]$SharedVariables
+        $Descriptions
     )
 
     $doc_vars = Get-VariablesFromDocx -FilePath $FilePath
@@ -191,9 +178,11 @@ $CSVFile_users = "$CurrentFolder\$($Config.CSVFile_users)"
 Validate-Files @($CSVFile_users)
 $CSVFile_users_Content = Import-Csv -Delimiter ';' -Path $CSVFile_users -Encoding 'UTF8'
 
-$TemplateFile = Select-TemplateFile -Directory "$CurrentFolder\$($Config.TemplatesFolder)"
-$TemplateFilePath = "$CurrentFolder\$($Config.TemplatesFolder)\$TemplateFile"
-Validate-Files @($TemplateFilePath)
+$TemplateSource = Select-TemplateSource -BasePath "$CurrentFolder\$($Config.TemplatesFolder)"
+$IsFolder = $TemplateSource.PSIsContainer
+$TemplateSourcePath = $TemplateSource.FullName
+
+Validate-Files @($TemplateSourcePath)
 
 $surnames_input = Read-Host $Config.Prompt_csv_keyfield
 $surnames = $surnames_input -split '\s*,\s*'
@@ -213,18 +202,40 @@ foreach ($surname in $surnames) {
     foreach ($prop in $user_row.psobject.properties) {
         $VariableMap[$prop.Name] = $prop.Value
     }
+    if ($IsFolder) {
+        $UserDstFolder = "$DstPath\$($TemplateSource.Name)_$surname"
+        if (Test-Path $UserDstFolder) {
+            Remove-Item -Path $UserDstFolder -Force -Recurse
+        }
+        Copy-Item -Recurse -Path $TemplateSourcePath -Destination $UserDstFolder -Force
 
-    $FileNameNew = "$CurrentFolder\$($Config.DstFolder)\$TemplateFile".`
-        Replace("`${$($Config.FileNameReplaceVar)}", $VariableMap.Surname)
-    Copy-Item $TemplateFilePath -Destination $FileNameNew -Verbose
-    
-    $VariableMap = Get-AdditionalVariables -FilePath $FileNameNew `
-        -VariableMap $VariableMap `
-        -Descriptions $Config.vars_description `
-        -SharedVariables $SharedVariables
+        $WordFiles = Get-ChildItem -Recurse -Path $UserDstFolder -Filter *.docx
+        foreach ($file in $WordFiles) {
+            $VariableMap = Get-AdditionalVariables -FilePath $file.FullName `
+                -VariableMap $VariableMap `
+                -Descriptions $Config.vars_description
 
-    Write-Output "`nGenerating file: $FileNameNew"
-    Replace-VariablesInDocx -FilePath $FileNameNew -VariableMap $VariableMap
+            $NewFileName = $file.Name.Replace("`${$($Config.FileNameReplaceVar)}", $VariableMap.Surname)
+            if ($file.Name -ne $NewFileName) {
+                Rename-Item -Path $file.FullName -NewName $NewFileName
+                $file = Get-Item "$($file.Directory.FullName)\$NewFileName"
+            }
+
+            Replace-VariablesInDocx -FilePath $file.FullName -VariableMap $VariableMap
+        }
+
+    } else {
+        $FileNameNew = "$CurrentFolder\$($Config.DstFolder)\$TemplateSource".`
+            Replace("`${$($Config.FileNameReplaceVar)}", $VariableMap.Surname)
+        Copy-Item $TemplateSourcePath -Destination $FileNameNew -Verbose
+        
+        $VariableMap = Get-AdditionalVariables -FilePath $FileNameNew `
+            -VariableMap $VariableMap `
+            -Descriptions $Config.vars_description
+
+        Write-Output "`nGenerating file: $FileNameNew"
+        Replace-VariablesInDocx -FilePath $FileNameNew -VariableMap $VariableMap
+    }
 }
 
 Read-Host "Press Enter to exit"
