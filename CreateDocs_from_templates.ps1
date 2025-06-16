@@ -1,141 +1,15 @@
 ﻿$ConfigFile = "Config_all.json"
 
-function Select-TemplateSource {
-    param (
-        [string]$BasePath
-    )
-    $items = Get-ChildItem -Path $BasePath
-    if ($items.Count -eq 0) {
-        throw "No templates found in $BasePath"
-    }
-
-    Write-Host "Choose a template (file or folder):"
-    for ($i = 0; $i -lt $items.Count; $i++) {
-        $type = if ($items[$i].PSIsContainer) { "Folder" } else { "File" }
-        Write-Host "$($i + 1). $($items[$i].Name) [$type]"
-    }
-
-    $choice = Read-Host "Enter number of template to use"
-    return $items[$choice - 1]
-}
-
-
-
 # Define function to replace variables in a .docx file
-function Replace-VariablesInDocx {
-    param (
-        [string]$FilePath,
-        [hashtable]$VariableMap
-    )
-    $objWord = New-Object -ComObject word.application
-    $objWord.Visible = $False
-    $objDoc = $objWord.Documents.Open($FilePath)
-    $objSelection = $objWord.Selection
-    
-    $MatchCase = $false
-    $MatchWholeWord = $true
-    $MatchWildcards = $false
-    $MatchSoundsLike = $false
-    $MatchAllWordForms = $false
-    $Forward = $true
-    $wrap = $wdFindContinue
-    $wdFindContinue = 1
-    $Format = $false
-    $ReplaceAll = 2
-
-    foreach ($Variable in $VariableMap.Keys) {
-        $FindText = "`${$Variable}"
-        $ReplaceWith = $VariableMap[$Variable]
-
-        # Split the variable into manageable parts if necessary
-        $ReplaceWithParts = @()
-        if ($ReplaceWith.Length -lt 255) {
-            # If the variable is within the allowed limit, add directly
-            $ReplaceWithParts = @("$ReplaceWith")
-        } else {
-            # Split into chunks of 255 characters or less
-            $Chunks = [regex]::Matches($ReplaceWith, '.{1,200}').Value
-            $i = 0
-            foreach ($Chunk in $Chunks) {
-                $i++
-                if ($i -lt $Chunks.Length) {
-                    $ReplaceWithParts += "$Chunk$FindText"
-                } else {
-                    $ReplaceWithParts += "$Chunk"
-                }
-            }
-        }
-        # Execute find/replace for each part
-        foreach ($ReplacePart in $ReplaceWithParts) {
-            $objSelection.Find.Execute(
-                $FindText, 
-                $MatchCase, 
-                $MatchWholeWord, 
-                $MatchWildcards, 
-                $MatchSoundsLike, 
-                $MatchAllWordForms, 
-                $Forward, 
-                $wrap, 
-                $Format, 
-                $ReplacePart, 
-                $ReplaceAll
-            ) |  Out-Null
-        }
-        $objSelection.Find.Execute("     ", $MatchCase, $MatchWholeWord, $MatchWildcards, $MatchSoundsLike, $MatchAllWordForms, $Forward, $wrap, $Format, " ", $ReplaceAll) |  Out-Null
-        $objSelection.Find.Execute("    ", $MatchCase, $MatchWholeWord, $MatchWildcards, $MatchSoundsLike, $MatchAllWordForms, $Forward, $wrap, $Format, " ", $ReplaceAll) |  Out-Null
-        $objSelection.Find.Execute("   ", $MatchCase, $MatchWholeWord, $MatchWildcards, $MatchSoundsLike, $MatchAllWordForms, $Forward, $wrap, $Format, " ", $ReplaceAll) |  Out-Null
-        $objSelection.Find.Execute("  ", $MatchCase, $MatchWholeWord, $MatchWildcards, $MatchSoundsLike, $MatchAllWordForms, $Forward, $wrap, $Format, " ", $ReplaceAll) |  Out-Null
-    }
-
-    $objDoc.save()
-    $objDoc.close()
-    $objWord.Quit()
-}
-
-function Get-VariablesFromDocx {
-    param (
-        [string]$FilePath
-    )
-    $objWord = New-Object -ComObject word.application
-    $objWord.Visible = $False
-    $objDoc = $objWord.Documents.Open($FilePath)
-    # $objSelection = $objWord.Selection
-    $text = $objDoc.Content.Text
-    $objDoc.close()
-    $objWord.Quit()
-
-    $var_matches = [regex]::Matches($text, '\$\{.*?\}')
-
-    # Put all matches into an array
-    $vars_array = @()
-    foreach ($match in $var_matches) {
-        $cleaned = $match.Value -replace '^\$\{', '' -replace '\}$', ''
-        $vars_array += $cleaned
-    }
-    $vars_array = $vars_array | Sort-Object -Unique
-    return $vars_array
-}
-
-function Validate-Files {
-    param (
-        [Array]$FilePathes
-    )
-    foreach ($path in $FilePathes) {
-        if (-Not (Test-Path $path)) {
-            Write-Error "$path file not found."
-            exit 1
-        }
-    }
-}
 
 function Get-AdditionalVariables {
     param (
-        [string]$FilePath,
+        $objSelection,
         [hashtable]$VariableMap,
         $Descriptions
     )
 
-    $doc_vars = Get-VariablesFromDocx -FilePath $FilePath
+    $doc_vars = Get-VariablesFromDocx -objDoc $objDoc
     $doc_vars_unique = $doc_vars | Where-Object { $_ -notin $VariableMap.Keys }
     $vars_description_names = $(Get-Member -InputObject $Descriptions -MemberType NoteProperty).Name
 
@@ -154,18 +28,35 @@ function Get-AdditionalVariables {
     return $VariableMap
 }
 
-function Get-Config {
-    param (
-        [string]$Folder,
-        [string]$ConfigFile
+function Update-WordFile{
+    param(
+        [string]$FilePath,
+        $VariableMap,
+        $VariableMap_2,
+        $surname_2
     )
-    $ConfigFile = "$Folder\$ConfigFile"
-    Validate-Files @($ConfigFile)
-    return Get-Content $ConfigFile | ConvertFrom-Json
+    $objects = Get-WordObject -FilePath $FilePath
+    $objWord = $objects[0]
+    $objDoc = $objects[1]
+    $objSelection = $objWord.Selection
+
+    $VariableMap = Get-AdditionalVariables -objDoc $objDoc `
+        -VariableMap $VariableMap `
+        -Descriptions $Config.vars_description
+
+    Replace-VariablesInDocx -VariableMap $VariableMap -objSelection $objSelection
+    if ($surname_2) {
+        Replace-VariablesInDocx -VariableMap $VariableMap_2 -VarMark '$2' -objSelection $objSelection
+    }
+    $objDoc.save()
+    $objDoc.close()
+    $objWord.Quit()
 }
 
 # --- Main ---
 $CurrentFolder = (Split-Path $MyInvocation.MyCommand.Path -Parent)
+Import-Module "$CurrentFolder\Utils.psm1" -Force
+Import-Module "$CurrentFolder\DocxHelpers.psm1" -Force
 $Config = Get-Config -Folder $CurrentFolder -ConfigFile $ConfigFile
 
 $DstPath = "$CurrentFolder\$($Config.DstFolder)"
@@ -186,22 +77,27 @@ Validate-Files @($TemplateSourcePath)
 
 $surnames_input = Read-Host $Config.Prompt_csv_keyfield
 $surnames = $surnames_input -split '\s*,\s*'
+$surname_2 = Read-Host $Config.Prompt_csv_keyfield_2
 
 $VariableMap = @{}
+$VariableMap_2 = @{}
 foreach ($surname in $surnames) {
     $VariableMap["Surname"] = $surname
+    Write-Host "`nProcessing $($VariableMap.Surname)"
 
     $user_row = $CSVFile_users_Content | Where-Object { $_.Surname -eq $surname }
     if (-not $user_row) {
         Write-Warning "Row '$surname' is not found in CSV file. Continue."
         continue
     }
-    
-    Write-Host "`nProcessing $($VariableMap.Surname)"
+    $VariableMap = Convert-CSVToHashtable -csv_obj $user_row -VariableMap $VariableMap
 
-    foreach ($prop in $user_row.psobject.properties) {
-        $VariableMap[$prop.Name] = $prop.Value
+    if ($surname_2) {
+        $VariableMap_2["Surname"] = $surname_2
+        $user_2_row = $CSVFile_users_Content | Where-Object { $_.Surname -eq $surname_2 }
+        $VariableMap_2 = Convert-CSVToHashtable -csv_obj $user_2_row -VariableMap $VariableMap_2
     }
+    
     if ($IsFolder) {
         $UserDstFolder = "$DstPath\$($TemplateSource.Name)_$surname"
         if (Test-Path $UserDstFolder) {
@@ -211,30 +107,23 @@ foreach ($surname in $surnames) {
 
         $WordFiles = Get-ChildItem -Recurse -Path $UserDstFolder -Filter *.docx
         foreach ($file in $WordFiles) {
-            $VariableMap = Get-AdditionalVariables -FilePath $file.FullName `
-                -VariableMap $VariableMap `
-                -Descriptions $Config.vars_description
-
             $NewFileName = $file.Name.Replace("`${$($Config.FileNameReplaceVar)}", $VariableMap.Surname)
             if ($file.Name -ne $NewFileName) {
                 Rename-Item -Path $file.FullName -NewName $NewFileName
                 $file = Get-Item "$($file.Directory.FullName)\$NewFileName"
             }
-
-            Replace-VariablesInDocx -FilePath $file.FullName -VariableMap $VariableMap
+            Write-Host "Processing file $($file.FullName)"
+            Update-WordFile -FilePath $file.FullName -VariableMap $VariableMap `
+                -VariableMap_2 $VariableMap_2 -surname_2 $surname_2
         }
 
     } else {
         $FileNameNew = "$CurrentFolder\$($Config.DstFolder)\$TemplateSource".`
             Replace("`${$($Config.FileNameReplaceVar)}", $VariableMap.Surname)
         Copy-Item $TemplateSourcePath -Destination $FileNameNew -Verbose
-        
-        $VariableMap = Get-AdditionalVariables -FilePath $FileNameNew `
-            -VariableMap $VariableMap `
-            -Descriptions $Config.vars_description
-
-        Write-Output "`nGenerating file: $FileNameNew"
-        Replace-VariablesInDocx -FilePath $FileNameNew -VariableMap $VariableMap
+        Write-Host "Processing file $FileNameNew"
+        Update-WordFile -FilePath $FileNameNew -VariableMap $VariableMap `
+            -VariableMap_2 $VariableMap_2 -surname_2 $surname_2
     }
 }
 
