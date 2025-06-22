@@ -1,7 +1,5 @@
 ﻿$ConfigFile = "Config_all.json"
 
-# Define function to replace variables in a .docx file
-
 function Get-AdditionalVariables {
     param (
         $objSelection,
@@ -22,6 +20,17 @@ function Get-AdditionalVariables {
                 $var_descr = $var
             }
             $value = Read-Host "$($var_descr)"
+            if (-not $value) {
+                if ($var.Contains("date_string")) {
+                    $value = (Get-Date).ToString("dd MMMM yyyy")
+                    Write-Host "-- Using current date value: $value"
+                } elseif ($var.Contains("date")) {
+                    $value = (Get-Date).ToString("dd.MM.yyyy")
+                    Write-Host "-- Using current date value: $value"
+                } else {
+                    Write-Warning "Variable '$var' is not set. Skipping."
+                }
+            }
             $VariableMap[$var] = $value
         }
     }
