@@ -7,6 +7,8 @@
         throw "No templates found in $BasePath"
     }
 
+    $items = $items | Sort-Object Name
+
     Write-Host "Choose a template (file or folder):"
     for ($i = 0; $i -lt $items.Count; $i++) {
         $type = if ($items[$i].PSIsContainer) { "Folder" } else { "File" }
