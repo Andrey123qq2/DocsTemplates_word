@@ -1,9 +1,4 @@
-﻿# param (
-#     [string]$ExcelFilePath = "C:\Path\To\Your\File.xlsx",
-#     [string]$SheetName = "Sheet1",
-#     [string]$OutputCsvPath = "C:\Path\To\Your\Output.csv"
-# )
-$ConfigFile = "Config_all.json"
+﻿$ConfigFile = "Config_all.json"
 $CurrentFolder = (Split-Path $MyInvocation.MyCommand.Path -Parent)
 Import-Module "$CurrentFolder\Utils.psm1" -Force
 $Config = Get-Config -Folder $CurrentFolder -ConfigFile $ConfigFile
@@ -56,3 +51,4 @@ Get-Content -Path $tempCsv | Set-Content -Encoding UTF8 -Path $OutputCsvPath
 # Remove-Item $tempCsv
 
 Write-Host "Exported '$SheetName' from '$ExcelFilePath' to '$OutputCsvPath' as UTF-8 CSV."
+Read-Host "Press Enter to exit..."
