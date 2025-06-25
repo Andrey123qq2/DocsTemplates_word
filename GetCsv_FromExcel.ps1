@@ -21,6 +21,7 @@ $workbook = $excel.Workbooks.Open($ExcelFilePath)
 
 # Get the worksheet by name
 $worksheet = $workbook.Sheets.Item($SheetName)
+Write-Host "worksheet.name: $($worksheet.name)"
 
 if (-not $worksheet) {
     Write-Error "Worksheet '$SheetName' not found."
@@ -31,8 +32,8 @@ if (-not $worksheet) {
 }
 
 # Copy the worksheet to a new workbook
-$worksheet.Copy()
-$tempWorkbook = $excel.Workbooks.Item(1)
+$tempWorkbook = $excel.Workbooks.Add()
+$worksheet.Copy($tempWorkbook.WorkSheets.Item(1))
 
 # Save as CSV (Excel uses Windows-1252 encoding by default)
 $tempCsv = "$env:TEMP\temp_output.csv"
@@ -52,6 +53,6 @@ $excel.Quit()
 
 # Re-encode CSV to UTF-8
 Get-Content -Path $tempCsv | Set-Content -Encoding UTF8 -Path $OutputCsvPath
-Remove-Item $tempCsv
+# Remove-Item $tempCsv
 
 Write-Host "Exported '$SheetName' from '$ExcelFilePath' to '$OutputCsvPath' as UTF-8 CSV."
