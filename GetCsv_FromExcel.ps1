@@ -51,4 +51,4 @@ Get-Content -Path $tempCsv | Set-Content -Encoding UTF8 -Path $OutputCsvPath
 # Remove-Item $tempCsv
 
 Write-Host "Exported '$SheetName' from '$ExcelFilePath' to '$OutputCsvPath' as UTF-8 CSV."
-Read-Host "Press Enter to exit..."
+Read-Host "Press Enter to exit"

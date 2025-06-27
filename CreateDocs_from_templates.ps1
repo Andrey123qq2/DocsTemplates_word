@@ -21,7 +21,7 @@ function Get-AdditionalVariables {
             }
             $value = Read-Host "$($var_descr)"
             if (-not $value) {
-                if ($var.Contains("date_string")) {
+                if ($var.Contains("date_string") -or $var.Contains("date_month_string")) {
                     $value = (Get-Date).ToString("dd MMMM yyyy")
                     Write-Host "-- Using current date value: $value"
                 } elseif ($var.Contains("date")) {
