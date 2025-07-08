@@ -19,6 +19,24 @@
     return $items[$choice - 1]
 }
 
+
+function Get-ItemFromArray {
+    param (
+        [array]$items,
+        [string]$ItemType = "user",
+        [Array]$Properties = @("Surname", "Name", "LastName")
+    )
+    Write-Host "Choose a $($ItemType):"
+    for ($i = 0; $i -lt $items.Count; $i++) {
+        Write-Host "$($i + 1). $($items[$i] | Select-Object -Property $Properties | foreach-object {
+            $_.psobject.Properties.Value -join ' ' 
+        })"
+    }
+
+    $choice = Read-Host "Enter number of $($ItemType) to use"
+    return $items[$choice - 1] 
+}
+
 function Validate-Files {
     param (
         [Array]$FilePathes

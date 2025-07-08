@@ -99,6 +99,10 @@ foreach ($surname in $surnames) {
         Write-Warning "Row '$surname' is not found in CSV file. Continue."
         continue
     }
+    if ($user_row.GetType().BaseType.Name -eq 'Array') {
+        Write-Warning "Multiple rows found for '$surname'."
+        $user_row = Get-ItemFromArray -items $user_row -ItemType "user"
+    }
     $VariableMap = Convert-CSVToHashtable -csv_obj $user_row -VariableMap $VariableMap
 
     if ($surname_2) {
