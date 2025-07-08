@@ -1,11 +1,14 @@
 {
-	'TemplatesFolder': 'Templates',
-	'DstFolder': 'docs_files',
-	'CSVFile_users': 'users.csv',
-	'Prompt_csv_keyfield': 'Enter surname (can be multiple comma separated)',
-	'vars_description': {
-		'event_date': 'Event date (eg. 27.04.2025)',
-		'event_start_date_month_2': 'Event start (eg. 28 april 2025)',
-		'some_string': 'Some long string'
+	"TemplatesFolder": "Templates",
+	"DstFolder": "docs_files",
+	"ExcelFilePath": "path-to-Excel-with-users-for-export-to-csv.xlsx",
+	"CSVFile_users": "users.csv",
+	"FileNameReplaceVar": "Surname",
+	"Prompt_csv_keyfield": "Enter surname (can be multiple comma separated)",
+	"Prompt_csv_keyfield_2": "Enter 2nd surname in the doc",
+	"vars_description": {
+		"event_date": "Event date (eg. 27.04.2025)",
+		"event_start_date_month_string": "Event start (eg. 28 april 2025)",
+		"some_string": "Some long string"
 	}
 }
