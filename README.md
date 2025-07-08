@@ -72,6 +72,6 @@ This is to certify that ${FirstName} ${LastName} (${Surname}) is employed as a $
 in the ${Department} Department.
 
 Date of Issue: ${IssueDate}
-Signed by: ${SignerName}
+Signed by: $2{SignerName}
 
 ```
