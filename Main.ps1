@@ -23,13 +23,14 @@ $TemplateSource = Select-TemplateSource -BasePath "$CurrentFolder\$($Config.Temp
 $surnames = Read-ListFromInput $Config.Prompt_csv_keyfield
 $surname_2 = Read-Host $Config.Prompt_csv_keyfield_2
 
+$VariableMap = @{}
 foreach ($surname in $surnames) {
     Write-Host "`nProcessing $surname"
 
     $user_row = Find-UserRow -Users $Users -Surname $surname
     if (-not $user_row) { continue }
-
-    $VariableMap = New-VariableMap -User $user_row -Defaults @{ Surname = $surname }
+    $VariableMap["Surname"] = $surname
+    $VariableMap = New-VariableMap -User $user_row -Defaults $VariableMap
 
     if ($surname_2) {
         $user2_row = Find-UserRow -Users $Users -Surname $surname_2
