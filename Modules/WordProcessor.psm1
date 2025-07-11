@@ -78,6 +78,30 @@ function Request-MissingVariables {
     return $VariableMap
 }
 
+function Convert-DocxToPdf {
+    param (
+        [string]$docxPath,
+        [string]$pdfPath
+    )
+    # Create Word COM object
+    $word = New-Object -ComObject Word.Application
+    $word.Visible = $false
+
+    try {
+        $doc = $word.Documents.Open($docxPath)
+        $doc.SaveAs([ref]$pdfPath, [ref]17)  # 17 = wdFormatPDF
+        $doc.Close()
+        Write-Host " Converted to PDF: $pdfPath"
+    } catch {
+        Write-Error " Failed to convert document: $_"
+    } finally {
+        $word.Quit()
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
+        [GC]::Collect()
+        [GC]::WaitForPendingFinalizers()
+    }
+}
+
 function Invoke-TemplateProcessing {
     param (
         $TemplateSource,
@@ -104,6 +128,12 @@ function Invoke-TemplateProcessing {
             }
             Write-Host "Processing file $($file.FullName)"
             Invoke-WordFileProcessing -FilePath $file.FullName -UserVars $UserVars -UserVars2 $UserVars2 -Surname2 $Surname2 -Descriptions $Config.vars_description
+            if ($file.Name -like "*_pdf.docx") {
+                Convert-DocxToPdf `
+                    -docxPath $file.FullName `
+                    -pdfPath (Join-Path $file.Directory.FullName ($file.Name -replace "_pdf.docx", ".pdf"))
+                Rename-Item -Path $file.FullName -NewName ($file.Name -replace "_pdf.docx", ".docx")
+            }
         }
     } else {
         $dstFileNewName = Resolve-StringPlaceholders -InputString $TemplateSource.Name -VarMap $UserVars
@@ -112,6 +142,12 @@ function Invoke-TemplateProcessing {
         Copy-Item $TemplateSource.FullName -Destination $dst -Force
         Write-Host "Processing file $dst"
         Invoke-WordFileProcessing -FilePath $dst -UserVars $UserVars -UserVars2 $UserVars2 -Surname2 $Surname2 -Descriptions $Config.vars_description
+        if ($dst.Name -like "*_pdf.docx") {
+            Convert-DocxToPdf `
+                -docxPath $file.FullName `
+                -pdfPath (Join-Path $dst.Directory.FullName ($dst.Name -replace "_pdf.docx", ".pdf"))
+            Rename-Item -Path $dst.FullName -NewName ($dst.Name -replace "_pdf.docx", ".docx")
+        }
     }
 }
 
