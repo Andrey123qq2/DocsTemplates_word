@@ -47,4 +47,4 @@ TestResults/
 *.docx
 *.csv
 *.json
-docx_files/
+docs_files/
