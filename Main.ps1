@@ -21,7 +21,7 @@ $TemplateSource = Select-TemplateSource -BasePath "$CurrentFolder\$($Config.Temp
 
 # Input
 $surnames = Read-ListFromInput $Config.Prompt_csv_keyfield
-$surname_2 = Read-Host $Config.Prompt_csv_keyfield_2
+$surnames_2 = Read-ListFromInput $Config.Prompt_csv_keyfield_2
 
 $VariableMap = @{}
 foreach ($surname in $surnames) {
@@ -32,17 +32,21 @@ foreach ($surname in $surnames) {
     $VariableMap["Surname"] = $surname
     $VariableMap = New-VariableMap -User $user_row -Defaults $VariableMap
 
-    if ($surname_2) {
-        $user2_row = Find-UserRow -Users $Users -Surname $surname_2
-        $VariableMap_2 = New-VariableMap -User $user2_row -Defaults @{ Surname = $surname_2 }
+    $VariableMap_2 = @()
+    if ($surnames_2[0] -ne "") {
+        foreach ($surname_2_item in $surnames_2) {
+            $user2_row = Find-UserRow -Users $Users -Surname $surname_2_item
+            $VariableMap_2_user = New-VariableMap -User $user2_row -Defaults @{ Surname = $surname_2_item }
+            $VariableMap_2 += $VariableMap_2_user
+        }         
     }
 
-    Invoke-TemplateProcessing -TemplateSource $TemplateSource `
-                      -DstFolder $DstPath `
-                      -UserVars $VariableMap `
-                      -UserVars2 $VariableMap_2 `
-                      -Surname2 $surname_2 `
-                      -Config $Config
+    Invoke-TemplateProcessing `
+                    -TemplateSource $TemplateSource `
+                    -DstFolder $DstPath `
+                    -UserVars $VariableMap `
+                    -UserVars2 $VariableMap_2 `
+                    -Config $Config
 }
 
 Read-Host "Press Enter to exit"

@@ -108,12 +108,11 @@ function Invoke-TemplateProcessing {
         $DstFolder,
         $UserVars,
         $UserVars2,
-        $Surname2,
         $Config
     )
     if ($TemplateSource.PSIsContainer) {
         $NewFolderName = Resolve-StringPlaceholders -InputString $TemplateSource.Name -VarMap $UserVars
-        $NewFolderName = Resolve-StringPlaceholders -InputString $NewFolderName -VarMap $UserVars2 -VarMark '$2'
+        $NewFolderName = Resolve-StringPlaceholders -InputString $NewFolderName -VarMap $UserVars2[0] -VarMark '$2'
         $dst = Join-Path $DstFolder $NewFolderName
         if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
         Copy-Item $TemplateSource.FullName -Destination $dst -Recurse -Force
@@ -121,13 +120,22 @@ function Invoke-TemplateProcessing {
         Get-ChildItem -Recurse -Path $dst -Filter *.docx | ForEach-Object {
             $file = $_
             $newFileName = Resolve-StringPlaceholders -InputString $file.Name -VarMap $UserVars
-            $newFileName = Resolve-StringPlaceholders -InputString $newFileName -VarMap $UserVars2 -VarMark '$2'
+            $i = 1
+            foreach ($var in $UserVars2) {
+                $i++
+                $newFileName = Resolve-StringPlaceholders -InputString $newFileName -VarMap $var -VarMark "`$$i"
+            }
             if ($file.Name -ne $newName) {
                 Rename-Item -Path $file.FullName -NewName $newFileName
                 $file = Get-Item (Join-Path $file.Directory.FullName $newFileName)
             }
             Write-Host "Processing file $($file.FullName)"
-            Invoke-WordFileProcessing -FilePath $file.FullName -UserVars $UserVars -UserVars2 $UserVars2 -Surname2 $Surname2 -Descriptions $Config.vars_description
+            Invoke-WordFileProcessing `
+                -FilePath $file.FullName `
+                -UserVars $UserVars `
+                -UserVars2 $UserVars2 `
+                -Descriptions $Config.vars_description
+
             if ($file.Name -like "*_pdf.docx") {
                 Convert-DocxToPdf `
                     -docxPath $file.FullName `
@@ -137,11 +145,19 @@ function Invoke-TemplateProcessing {
         }
     } else {
         $dstFileNewName = Resolve-StringPlaceholders -InputString $TemplateSource.Name -VarMap $UserVars
-        $dstFileNewName = Resolve-StringPlaceholders -InputString $dstFileNewName -VarMap $UserVars2 -VarMark '$2'
+        foreach ($var in $UserVars2) {
+            $i++
+            $dstFileNewName = Resolve-StringPlaceholders -InputString $dstFileNewName -VarMap $var -VarMark "`$$i"
+        }
         $dst = Join-Path $DstFolder $dstFileNewName
         Copy-Item $TemplateSource.FullName -Destination $dst -Force
         Write-Host "Processing file $dst"
-        Invoke-WordFileProcessing -FilePath $dst -UserVars $UserVars -UserVars2 $UserVars2 -Surname2 $Surname2 -Descriptions $Config.vars_description
+        Invoke-WordFileProcessing `
+            -FilePath $dst `
+            -UserVars $UserVars `
+            -UserVars2 $UserVars2 `
+            -Descriptions $Config.vars_description
+
         if ($dst.Name -like "*_pdf.docx") {
             Convert-DocxToPdf `
                 -docxPath $file.FullName `
@@ -155,16 +171,19 @@ function Invoke-WordFileProcessing {
     param (
         [string]$FilePath,
         [hashtable]$UserVars,
-        [hashtable]$UserVars2,
-        [string]$Surname2,
+        [array]$UserVars2,
         $Descriptions
     )
     $word, $doc = Get-WordObject -FilePath $FilePath
     $selection = $word.Selection
     $UserVars = Request-MissingVariables -objDoc $doc -VariableMap $UserVars -Descriptions $Descriptions
     Update-VarsPlaceholdersInDocx -VariableMap $UserVars -objSelection $selection
-    if ($Surname2) {
-        Update-VarsPlaceholdersInDocx -VariableMap $UserVars2 -VarMark '$2' -objSelection $selection
+    if ($UserVars2.Count -gt 0) {
+        $i = 1
+        foreach ($usrVars in $UserVars2) {
+            $i++
+            Update-VarsPlaceholdersInDocx -VariableMap $usrVars -VarMark "`$$i" -objSelection $selection    
+        }
     }
     $doc.Save()
     $doc.Close()
