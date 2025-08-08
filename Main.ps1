@@ -33,7 +33,7 @@ foreach ($surname in $surnames) {
     $VariableMap = New-VariableMap -User $user_row -Defaults $VariableMap
 
     $VariableMap_2 = @()
-    if ($surnames_2[0] -ne "") {
+    if ($surnames_2[0] -ne "" -and $null -ne $surnames_2[0]) {
         foreach ($surname_2_item in $surnames_2) {
             $user2_row = Find-UserRow -Users $Users -Surname $surname_2_item
             $VariableMap_2_user = New-VariableMap -User $user2_row -Defaults @{ Surname = $surname_2_item }
