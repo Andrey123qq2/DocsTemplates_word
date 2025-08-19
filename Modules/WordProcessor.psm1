@@ -17,14 +17,20 @@ function Update-VarsPlaceholdersInDocx {
     param (
         $objSelection,
         [hashtable]$VariableMap,
-        [string]$VarMark = '$'
+        [string]$VarMark = '$',
+        [string]$emptyValue = "0"
     )
     $wdFindContinue = 1
     $ReplaceAll = 2
+    $highlightMarker = "-–EMPTY_VALUE--"
+    $wdYellow = 7
     foreach ($Variable in $VariableMap.Keys) {
         $FindText = "$VarMark{$Variable}"
         $ReplaceWith = $VariableMap[$Variable]
         $ReplaceParts = if ($ReplaceWith.Length -lt 255) {
+            if ($ReplaceWith -eq $emptyValue) {
+                $ReplaceWith = $highlightMarker
+            }
             @($ReplaceWith)
         } else {
             $chunks = [regex]::Matches($ReplaceWith, ".{1,200}") | ForEach-Object { $_.Value }
@@ -37,7 +43,22 @@ function Update-VarsPlaceholdersInDocx {
         }
 
         foreach ($part in $ReplaceParts) {
-            $objSelection.Find.Execute($FindText, $false, $true, $false, $false, $false, $true, $wdFindContinue, $false, $part, $ReplaceAll) | Out-Null
+            $objSelection.Find.Execute(
+                $FindText, $false, $true, $false, $false, $false, $true, 
+                $wdFindContinue, $false, $part, $ReplaceAll
+            ) | Out-Null
+            if ($part -eq $highlightMarker) {
+                $objSelection.HomeKey(6) | Out-Null # wdStory = 6, move to start
+                $objSelection.Find.ClearFormatting()
+                $objSelection.Find.Text = $highlightMarker
+                $objSelection.Find.Replacement.ClearFormatting()
+                while ($objSelection.Find.Execute()) {
+                    if ($objSelection.Text -eq $highlightMarker) {
+                        $objSelection.Range.HighlightColorIndex = $wdYellow
+                    }
+                    $objSelection.Collapse(0) # wdCollapseEnd = 0
+                }
+            }
         }
     }
     $objSelection.Find.Execute("     ", $false, $true, $false, $false, $false, $true, $wdFindContinue, $false, " ", $ReplaceAll) | Out-Null
