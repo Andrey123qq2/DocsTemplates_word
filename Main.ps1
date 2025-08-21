@@ -31,6 +31,8 @@ foreach ($surname in $surnames) {
     if (-not $user_row) { continue }
     $VariableMap["Surname"] = $surname
     $VariableMap = New-VariableMap -User $user_row -Defaults $VariableMap
+    $VariableMap["CDAY"] = Get-Date -format "dd"
+    $VariableMap["CMONTH"] = Get-Date -format "MM"
 
     $VariableMap_2 = @()
     if ($surnames_2[0] -ne "" -and $null -ne $surnames_2[0]) {

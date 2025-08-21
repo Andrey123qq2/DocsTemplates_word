@@ -5,7 +5,8 @@
 	"CSVFile_users": "users.csv",
 	"FileNameReplaceVar": "Surname",
 	"Prompt_csv_keyfield": "Enter surname (can be multiple comma separated)",
-	"Prompt_csv_keyfield_2": "Enter 2nd surname in the doc",
+	"Prompt_csv_keyfield_2": "Enter 2nd surname in the doc (can be multiple comma separated)",
+	"files_prefix": "${CDAY}_${CMONTH}_TEST_",
 	"vars_description": {
 		"event_date": "Event date (eg. 27.04.2025)",
 		"event_start_date_month_string": "Event start (eg. 28 april 2025)",

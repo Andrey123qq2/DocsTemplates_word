@@ -133,6 +133,9 @@ function Invoke-TemplateProcessing {
     )
     if ($TemplateSource.PSIsContainer) {
         $NewFolderName = Resolve-StringPlaceholders -InputString $TemplateSource.Name -VarMap $UserVars
+        if ($Config.files_prefix) {
+            $NewFolderName = "$($Config.files_prefix)$NewFolderName"
+        }
         $NewFolderName = Resolve-StringPlaceholders -InputString $NewFolderName -VarMap $UserVars2[0] -VarMark '$2'
         $dst = Join-Path $DstFolder $NewFolderName
         if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
@@ -165,7 +168,11 @@ function Invoke-TemplateProcessing {
             }
         }
     } else {
-        $dstFileNewName = Resolve-StringPlaceholders -InputString $TemplateSource.Name -VarMap $UserVars
+        if ($Config.files_prefix) {
+            $dstFileNewName = "$($Config.files_prefix)$($TemplateSource.Name)"
+        }
+        $dstFileNewName = Resolve-StringPlaceholders -InputString $dstFileNewName -VarMap $UserVars
+
         foreach ($var in $UserVars2) {
             $i++
             $dstFileNewName = Resolve-StringPlaceholders -InputString $dstFileNewName -VarMap $var -VarMark "`$$i"
